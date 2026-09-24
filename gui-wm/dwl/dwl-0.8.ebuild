@@ -1,43 +1,35 @@
-# Copyright 2022-2024 Gentoo Authors
+# Copyright 2022-2026 Gentoo Authors
 # Distributed under the terms of the GNU General Public License v2
 
 EAPI=8
 
 inherit savedconfig toolchain-funcs
 
-if [[ ${PV} == 9999 ]]; then
-	EGIT_REPO_URI="https://codeberg.org/dwl/dwl.git"
-	inherit git-r3
-else
-	MY_PV="${PV/_rc/-rc}"
-	MY_P="${PN}-v${MY_PV}"
-	SRC_URI="https://codeberg.org/${PN}/${PN}/releases/download/v${MY_PV}/${MY_P}.tar.gz"
-	S="${WORKDIR}/${MY_P}"
-	KEYWORDS="~amd64 ~arm64 ~ppc64 ~x86"
-fi
+MY_PV="${PV/_rc/-rc}"
+MY_P="${PN}-v${MY_PV}"
 
 DESCRIPTION="dwm for Wayland"
 HOMEPAGE="https://codeberg.org/dwl/dwl"
+SRC_URI="https://codeberg.org/${PN}/${PN}/releases/download/v${MY_PV}/${MY_P}.tar.gz"
+S="${WORKDIR}/${MY_P}"
 
 LICENSE="CC0-1.0 GPL-3+ MIT"
 SLOT="0"
-IUSE="X"
+KEYWORDS="~amd64"
+IUSE="X autostart bar movestack"
 
-if [[ ${PV} == 9999 ]]; then
-	COMMON_DEPEND="~gui-libs/wlroots-9999:=[libinput,session,X?]"
-else
-	COMMON_DEPEND="
-		>=gui-libs/wlroots-0.19:=[libinput,session,X?]
-		<gui-libs/wlroots-0.20:="
-fi
-
-COMMON_DEPEND+="
+COMMON_DEPEND="
 	dev-libs/libinput:=
 	dev-libs/wayland
+	gui-libs/wlroots:0.19=[libinput,session,X?]
 	x11-libs/libxkbcommon
 	X? (
 		x11-libs/libxcb:=
 		x11-libs/xcb-util-wm
+	)
+	bar? (
+		media-libs/fcft
+		x11-libs/pixman
 	)
 "
 RDEPEND="
@@ -57,13 +49,31 @@ BDEPEND="
 	virtual/pkgconfig
 "
 
-PATCHES=(
-	"${FILESDIR}/autostart-0.8.patch"
-	"${FILESDIR}/movestack-0.8.patch"
-)
-
 src_prepare() {
 	restore_config config.h
+
+	# Patches add code to config.def.h, which a saved config.h would hide.
+	# Fail early with a clear message rather than with a compiler error.
+	if [[ -f config.h ]]; then
+		local flag sym
+		for flag in autostart bar movestack; do
+			case ${flag} in
+				bar) sym=togglebar ;;
+				*)   sym=${flag} ;;
+			esac
+			if use "${flag}"; then
+				grep -q "${sym}" config.h || die \
+					"USE=${flag} is enabled but the saved config.h has no '${sym}'; merge it in from the patched config.def.h"
+			elif grep -q "${sym}" config.h; then
+				die "The saved config.h references '${sym}' but USE=${flag} is disabled"
+			fi
+		done
+	fi
+
+	PATCHES=()
+	use autostart && PATCHES+=( "${FILESDIR}/autostart-${PV}.patch" )
+	use bar       && PATCHES+=( "${FILESDIR}/bar-${PV}.patch" )
+	use movestack && PATCHES+=( "${FILESDIR}/movestack-${PV}.patch" )
 
 	default
 }

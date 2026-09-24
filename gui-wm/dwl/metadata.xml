@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE pkgmetadata SYSTEM "https://www.gentoo.org/dtd/metadata.dtd">
+<pkgmetadata>
+	<use>
+		<flag name="autostart">Apply the autostart patch (run commands from an autostart array in config.h at startup)</flag>
+		<flag name="bar">Apply the dwm-style built-in status bar patch (pulls in fcft and pixman)</flag>
+		<flag name="movestack">Apply the movestack patch (swap the focused client with its neighbour in the stack)</flag>
+	</use>
+	<upstream>
+		<remote-id type="codeberg">dwl/dwl</remote-id>
+	</upstream>
+</pkgmetadata>
