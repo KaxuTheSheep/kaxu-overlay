@@ -16,7 +16,7 @@ S="${WORKDIR}/${MY_P}"
 LICENSE="CC0-1.0 GPL-3+ MIT"
 SLOT="0"
 KEYWORDS="~amd64"
-IUSE="X"
+IUSE="X cfact movestack"
 
 COMMON_DEPEND="
 	dev-libs/libinput:=
@@ -50,11 +50,27 @@ BDEPEND="
 src_prepare() {
 	restore_config config.h
 
-	# 0.8-era patches (movestack, bar) add keybindings whose functions
-	# no longer exist in an unpatched 0.9
-	if [[ -f config.h ]] && grep -qE 'movestack|togglebar' config.h; then
-		die "The saved config.h contains patch-specific code (movestack/togglebar); remove it or regenerate from config.def.h"
+	# Patches add keybindings to config.def.h, which a saved config.h would
+	# hide. Fail early with a clear message rather than a compiler error.
+	if [[ -f config.h ]]; then
+		local flag sym
+		for flag in cfact movestack; do
+			case ${flag} in
+				cfact) sym=setcfact ;;
+				*)     sym=${flag} ;;
+			esac
+			if use "${flag}"; then
+				grep -q "${sym}" config.h || die \
+					"USE=${flag} is enabled but the saved config.h has no '${sym}'; merge it in from the patched config.def.h"
+			elif grep -q "${sym}" config.h; then
+				die "The saved config.h references '${sym}' but USE=${flag} is disabled"
+			fi
+		done
 	fi
+
+	PATCHES=()
+	use cfact     && PATCHES+=( "${FILESDIR}/cfact-${PV}.patch" )
+	use movestack && PATCHES+=( "${FILESDIR}/movestack-${PV}.patch" )
 
 	default
 }
